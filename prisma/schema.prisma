@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  OWNER
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      Role     @default(CUSTOMER)
+  isVerified Boolean @default(false)
+  verificationToken String?
+  tokenExpires DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  businesses   Business[] // If owner, can have businesses
+  appointments Appointment[] // As customer
+  reviews      Review[]
+}
+
+model Business {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  address     String?
+  category    String?
+  images      String[] @default([])
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  services     Service[]
+  staff        Staff[]
+  appointments Appointment[]
+  reviews      Review[]
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  duration    Int      // in minutes
+  price       Float
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  appointments Appointment[]
+}
+
+model Staff {
+  id         String   @id @default(uuid())
+  name       String
+  email      String?
+  phone      String?
+  image      String?
+  rating     Float    @default(0)
+  reviewCount Int     @default(0)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  appointments Appointment[]
+  reviews      Review[]
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  date       DateTime
+  status     AppointmentStatus @default(PENDING)
+  customerId String
+  customer   User              @relation(fields: [customerId], references: [id])
+  businessId String
+  business   Business          @relation(fields: [businessId], references: [id])
+  serviceId  String
+  service    Service           @relation(fields: [serviceId], references: [id])
+  staffId    String?
+  staff      Staff?            @relation(fields: [staffId], references: [id])
+  completionOtp String?
+  otpExpires    DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int
+  comment    String?
+  customerId String
+  customer   User     @relation(fields: [customerId], references: [id])
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  staffId    String?
+  staff      Staff?   @relation(fields: [staffId], references: [id])
+  createdAt  DateTime @default(now())
+}

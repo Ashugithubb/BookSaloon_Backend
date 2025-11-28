@@ -1,0 +1,48 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const prisma = require('./lib/prisma');
+
+const app = express();
+const port = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Serve static files (uploaded images)
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// Routes
+const authRoutes = require('./routes/authRoutes');
+const businessRoutes = require('./routes/businessRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const staffRoutes = require('./routes/staffRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api', uploadRoutes); // Mount upload routes at /api to support /businesses and /staff paths
+app.use('/api/businesses', businessRoutes); // Then business routes
+app.use('/api', serviceRoutes);
+app.use('/api', staffRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api', reviewRoutes);
+
+app.get('/', async (req, res) => {
+    try {
+        await prisma.$connect();
+        res.send('Fresha Clone API is running and connected to DB');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error connecting to DB: ' + error.message);
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+});
