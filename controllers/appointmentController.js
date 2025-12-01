@@ -74,7 +74,19 @@ const getBusinessAppointments = async (req, res) => {
             return res.status(404).json({ message: 'Business not found' });
         }
 
-        if (business.ownerId !== req.user.id) {
+        // Check authorization
+        const isOwner = business.ownerId === req.user.id;
+
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            // Check if the staff member is associated with this business
+            isStaff = staffProfile && staffProfile.businessId === businessId;
+        }
+
+        if (!isOwner && !isStaff) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -99,7 +111,7 @@ const getBusinessAppointments = async (req, res) => {
 
 // @desc    Update appointment status
 // @route   PUT /api/appointments/:id/status
-// @access  Private (Owner or Customer)
+// @access  Private (Owner, Staff, or Customer)
 const updateAppointmentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -111,23 +123,43 @@ const updateAppointmentStatus = async (req, res) => {
     try {
         const appointment = await prisma.appointment.findUnique({
             where: { id },
-            include: { business: true },
+            include: { business: true, staff: true },
         });
 
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
         }
 
-        // Check authorization (owner can update any status, customer can only cancel)
+        // Check authorization
         const isOwner = appointment.business.ownerId === req.user.id;
         const isCustomer = appointment.customerId === req.user.id;
 
-        if (!isOwner && !isCustomer) {
+        // Check if user is staff assigned to this appointment
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            isStaff = staffProfile && appointment.staffId === staffProfile.id;
+        }
+
+        if (!isOwner && !isCustomer && !isStaff) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        // Customers can only cancel
         if (isCustomer && status !== 'CANCELLED') {
             return res.status(403).json({ message: 'Customers can only cancel appointments' });
+        }
+
+        // Staff cannot cancel appointments (only owner can)
+        if (isStaff && status === 'CANCELLED') {
+            return res.status(403).json({ message: 'Staff cannot cancel appointments. Please contact the owner.' });
+        }
+
+        // Staff can only confirm their own appointments
+        if (isStaff && status !== 'CONFIRMED') {
+            return res.status(403).json({ message: 'Staff can only confirm appointments' });
         }
 
         const updatedAppointment = await prisma.appointment.update({
@@ -170,7 +202,18 @@ const initiateCompletion = async (req, res) => {
             return res.status(404).json({ message: 'Appointment not found' });
         }
 
-        if (appointment.business.ownerId !== req.user.id) {
+        // Check authorization
+        const isOwner = appointment.business.ownerId === req.user.id;
+
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            isStaff = staffProfile && appointment.staffId === staffProfile.id;
+        }
+
+        if (!isOwner && !isStaff) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
@@ -212,10 +255,26 @@ const verifyCompletion = async (req, res) => {
     try {
         const appointment = await prisma.appointment.findUnique({
             where: { id },
+            include: { business: true },
         });
 
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check authorization
+        const isOwner = appointment.business.ownerId === req.user.id;
+
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            isStaff = staffProfile && appointment.staffId === staffProfile.id;
+        }
+
+        if (!isOwner && !isStaff) {
+            return res.status(403).json({ message: 'Not authorized' });
         }
 
         if (appointment.completionOtp !== otp) {
@@ -273,7 +332,31 @@ const getAvailableSlots = async (req, res) => {
             return res.json([]);
         }
 
-        // Get existing appointments with their service details to know duration
+        // Fetch business hours for the selected day
+        const dayOfWeek = selectedDate.getDay(); // 0-6
+        const businessHour = await prisma.businessHour.findFirst({
+            where: {
+                businessId,
+                dayOfWeek
+            }
+        });
+
+        // If no hours set or closed, return empty slots
+        if (!businessHour || !businessHour.isOpen) {
+            return res.json([]);
+        }
+
+        // Parse start and end times from "HH:mm" string
+        const [startHour, startMinute] = businessHour.startTime.split(':').map(Number);
+        const [endHour, endMinute] = businessHour.endTime.split(':').map(Number);
+
+        const businessStartTime = new Date(selectedDate);
+        businessStartTime.setHours(startHour, startMinute, 0, 0);
+
+        const businessEndTime = new Date(selectedDate);
+        businessEndTime.setHours(endHour, endMinute, 0, 0);
+
+        // Get existing appointments
         const appointments = await prisma.appointment.findMany({
             where: {
                 businessId,
@@ -286,55 +369,237 @@ const getAvailableSlots = async (req, res) => {
                 },
             },
             include: {
-                service: true, // Include service to get duration
+                service: true,
             },
         });
 
         const slots = [];
-        const businessStart = 9; // 9 AM
-        const businessEnd = 18; // 6 PM
+        const slotInterval = 30; // minutes
 
-        // Generate slots every 30 minutes
-        for (let hour = businessStart; hour < businessEnd; hour++) {
-            for (let minute = 0; minute < 60; minute += 30) {
-                const slotStart = new Date(selectedDate);
-                slotStart.setHours(hour, minute, 0, 0);
+        // Generate slots
+        let currentSlot = new Date(businessStartTime);
 
-                // Skip past times if booking for today
-                if (slotStart < now) {
-                    continue;
-                }
-
-                const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
-
-                // Check if slot ends after business hours
-                const businessEndTime = new Date(selectedDate);
-                businessEndTime.setHours(businessEnd, 0, 0, 0);
-
-                if (slotEnd > businessEndTime) {
-                    continue;
-                }
-
-                // Check for overlaps
-                const isBooked = appointments.some((apt) => {
-                    const aptStart = new Date(apt.date);
-                    const aptDuration = apt.service?.duration || 30;
-                    const aptEnd = new Date(aptStart.getTime() + aptDuration * 60000);
-
-                    // Overlap condition: (StartA < EndB) and (EndA > StartB)
-                    return slotStart < aptEnd && slotEnd > aptStart;
-                });
-
-                slots.push({
-                    time: slotStart.toISOString(),
-                    available: !isBooked,
-                });
+        while (currentSlot < businessEndTime) {
+            // Skip past times if booking for today
+            if (currentSlot < now) {
+                currentSlot = new Date(currentSlot.getTime() + slotInterval * 60000);
+                continue;
             }
+
+            const slotEnd = new Date(currentSlot.getTime() + serviceDuration * 60000);
+
+            // Check if slot ends after business hours
+            if (slotEnd > businessEndTime) {
+                break;
+            }
+
+            // Check for overlaps
+            const isBooked = appointments.some((apt) => {
+                const aptStart = new Date(apt.date);
+                const aptDuration = apt.service?.duration || 30;
+                const aptEnd = new Date(aptStart.getTime() + aptDuration * 60000);
+
+                // Overlap condition: (StartA < EndB) and (EndA > StartB)
+                return currentSlot < aptEnd && slotEnd > aptStart;
+            });
+
+            slots.push({
+                time: currentSlot.toISOString(),
+                available: !isBooked,
+            });
+
+            currentSlot = new Date(currentSlot.getTime() + slotInterval * 60000);
         }
 
         res.json(slots);
     } catch (error) {
         console.error('Error in getAvailableSlots:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// @desc    Mark appointment as completed
+// @route   POST /api/appointments/:id/complete
+// @access  Private (Business Owner)
+const markAsCompleted = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Verify appointment exists and belongs to user's business
+        const appointment = await prisma.appointment.findUnique({
+            where: { id },
+            include: { business: true },
+        });
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check authorization
+        const isOwner = appointment.business.ownerId === req.user.id;
+
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            isStaff = staffProfile && appointment.staffId === staffProfile.id;
+        }
+
+        if (!isOwner && !isStaff) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const updated = await prisma.appointment.update({
+            where: { id },
+            data: { status: 'COMPLETED' },
+            include: {
+                customer: true,
+                service: true,
+                staff: true,
+            },
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error in markAsCompleted:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// @desc    Mark appointment as no-show
+// @route   POST /api/appointments/:id/no-show
+// @access  Private (Business Owner)
+const markAsNoShow = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Verify appointment exists and belongs to user's business
+        const appointment = await prisma.appointment.findUnique({
+            where: { id },
+            include: { business: true },
+        });
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check authorization
+        const isOwner = appointment.business.ownerId === req.user.id;
+
+        let isStaff = false;
+        if (req.user.role === 'STAFF') {
+            const staffProfile = await prisma.staff.findUnique({
+                where: { userId: req.user.id }
+            });
+            isStaff = staffProfile && appointment.staffId === staffProfile.id;
+        }
+
+        if (!isOwner && !isStaff) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const updated = await prisma.appointment.update({
+            where: { id },
+            data: { status: 'NO_SHOW' },
+            include: {
+                customer: true,
+                service: true,
+                staff: true,
+            },
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error in markAsNoShow:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// @desc    Auto-cleanup expired pending appointments
+// @route   POST /api/appointments/cleanup-expired
+// @access  Private (Business Owner)
+const cleanupExpiredAppointments = async (req, res) => {
+    try {
+        const now = new Date();
+
+        // Auto-cancel PENDING appointments that are past their date
+        const result = await prisma.appointment.updateMany({
+            where: {
+                status: 'PENDING',
+                date: {
+                    lt: now,
+                },
+                business: {
+                    ownerId: req.user.id,
+                },
+            },
+            data: {
+                status: 'CANCELLED',
+            },
+        });
+
+        res.json({
+            message: `Cleaned up ${result.count} expired pending appointments`,
+            count: result.count,
+        });
+    } catch (error) {
+        console.error('Error in cleanupExpiredAppointments:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// @desc    Claim unassigned appointment (Staff only)
+// @route   POST /api/appointments/:id/claim
+// @access  Private (Staff only)
+const claimAppointment = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Get staff profile
+        const staff = await prisma.staff.findUnique({
+            where: { userId: req.user.id }
+        });
+
+        if (!staff) {
+            return res.status(404).json({ message: 'Staff profile not found' });
+        }
+
+        // Get appointment
+        const appointment = await prisma.appointment.findUnique({
+            where: { id },
+            include: { business: true }
+        });
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Verify appointment is from same business
+        if (appointment.businessId !== staff.businessId) {
+            return res.status(403).json({ message: 'Not authorized - different business' });
+        }
+
+        // Verify appointment is unassigned
+        if (appointment.staffId !== null) {
+            return res.status(400).json({ message: 'Appointment already assigned' });
+        }
+
+        // Claim appointment
+        const updated = await prisma.appointment.update({
+            where: { id },
+            data: { staffId: staff.id },
+            include: {
+                customer: true,
+                service: true,
+                staff: true,
+                business: true
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error in claimAppointment:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
@@ -347,4 +612,8 @@ module.exports = {
     getAvailableSlots,
     initiateCompletion,
     verifyCompletion,
+    markAsCompleted,
+    markAsNoShow,
+    cleanupExpiredAppointments,
+    claimAppointment,
 };

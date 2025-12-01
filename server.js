@@ -43,6 +43,25 @@ app.get('/', async (req, res) => {
     }
 });
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Global Error:', err);
+
+    // Handle Multer errors
+    if (err.name === 'MulterError') {
+        return res.status(400).json({
+            message: 'File upload error',
+            error: err.message
+        });
+    }
+
+    // Handle other errors
+    res.status(err.status || 500).json({
+        message: err.message || 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });

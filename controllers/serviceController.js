@@ -5,7 +5,7 @@ const prisma = require('../lib/prisma');
 // @access  Private (Owner only)
 const createService = async (req, res) => {
     const { businessId } = req.params;
-    const { name, description, duration, price } = req.body;
+    const { name, description, duration, price, discount } = req.body;
 
     if (!name || !duration || !price) {
         return res.status(400).json({ message: 'Name, duration, and price are required' });
@@ -31,6 +31,7 @@ const createService = async (req, res) => {
                 description,
                 duration: parseInt(duration),
                 price: parseFloat(price),
+                discount: discount ? parseFloat(discount) : 0,
                 businessId,
             },
         });
@@ -65,7 +66,7 @@ const getServices = async (req, res) => {
 // @access  Private (Owner only)
 const updateService = async (req, res) => {
     const { id } = req.params;
-    const { name, description, duration, price } = req.body;
+    const { name, description, duration, price, discount } = req.body;
 
     try {
         const service = await prisma.service.findUnique({
@@ -88,6 +89,7 @@ const updateService = async (req, res) => {
                 description,
                 duration: duration ? parseInt(duration) : undefined,
                 price: price ? parseFloat(price) : undefined,
+                discount: discount !== undefined ? parseFloat(discount) : undefined,
             },
         });
 

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
+const { sendVerificationEmail } = require('../utils/emailService');
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -39,7 +40,21 @@ const registerUser = async (req, res) => {
         const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
         const tokenExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Create user (unverified)
+        // IMPORTANT: Send verification email FIRST (before creating user)
+        // This prevents orphaned unverified accounts if email fails
+        try {
+            await sendVerificationEmail(email, verificationToken);
+            console.log('Verification email sent successfully to:', email);
+        } catch (emailError) {
+            console.error('Failed to send verification email:', emailError);
+            // Return error to user - don't create account if email fails
+            return res.status(500).json({
+                message: 'Failed to send verification email. Please check your email address or contact support.',
+                error: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+            });
+        }
+
+        // Only create user if email was sent successfully
         const user = await prisma.user.create({
             data: {
                 name,
@@ -53,13 +68,7 @@ const registerUser = async (req, res) => {
             },
         });
 
-        // Send verification email
-        try {
-            await sendVerificationEmail(user.email, verificationToken);
-        } catch (emailError) {
-            console.error('Failed to send verification email:', emailError);
-            // Consider deleting the user or allowing resend
-        }
+        console.log('User created successfully:', user.email);
 
         res.status(201).json({
             message: 'Registration successful. Please check your email for verification OTP.',

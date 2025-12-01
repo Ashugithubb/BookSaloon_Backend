@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   CUSTOMER
   OWNER
+  STAFF
   ADMIN
 }
 
@@ -40,6 +41,7 @@ model User {
   businesses   Business[] // If owner, can have businesses
   appointments Appointment[] // As customer
   reviews      Review[]
+  staffProfile Staff? // If staff, linked to staff record
 }
 
 model Business {
@@ -47,6 +49,9 @@ model Business {
   name        String
   description String?
   address     String?
+  phone       String?
+  latitude    Float?
+  longitude   Float?
   category    String?
   images      String[] @default([])
   ownerId     String
@@ -59,6 +64,17 @@ model Business {
   staff        Staff[]
   appointments Appointment[]
   reviews      Review[]
+  hours        BusinessHour[]
+}
+
+model BusinessHour {
+  id         String   @id @default(uuid())
+  dayOfWeek  Int      // 0=Sunday, 1=Monday, etc.
+  startTime  String   // "09:00"
+  endTime    String   // "17:00"
+  isOpen     Boolean  @default(true)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
 }
 
 model Service {
@@ -67,6 +83,7 @@ model Service {
   description String?
   duration    Int      // in minutes
   price       Float
+  discount    Float?   @default(0) // discount percentage (0-100)
   businessId  String
   business    Business @relation(fields: [businessId], references: [id])
   createdAt   DateTime @default(now())
@@ -79,13 +96,20 @@ model Service {
 model Staff {
   id         String   @id @default(uuid())
   name       String
-  email      String?
+  email      String?  @unique
   phone      String?
   image      String?
+  title      String?  // e.g., "Hair Stylist", "Barber", "Nail Technician"
+  yearsOfExperience Int? @default(0)
+  languages  String[] @default([]) // e.g., ["English", "Hindi", "Punjabi"]
   rating     Float    @default(0)
   reviewCount Int     @default(0)
   businessId String
-  business   Business @relation(fields: [businessId], references: [id])
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitationToken String?
+  invitationExpires DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

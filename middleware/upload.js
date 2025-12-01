@@ -4,6 +4,11 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // Configure Cloudinary
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    console.error('⚠️  CLOUDINARY CONFIGURATION MISSING!');
+    console.error('Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file');
+}
+
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -18,9 +23,9 @@ const storage = new CloudinaryStorage({
         const id = req.params.id;
 
         if (req.originalUrl.includes('/businesses/')) {
-            folder = `fresha - clone / businesses / ${id} `;
+            folder = `fresha-clone/businesses/${id}`;
         } else if (req.originalUrl.includes('/staff/')) {
-            folder = `fresha - clone / staff / ${id} `;
+            folder = `fresha-clone/staff/${id}`;
         }
 
         return {

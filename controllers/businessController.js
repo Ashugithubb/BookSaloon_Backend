@@ -4,7 +4,7 @@ const prisma = require('../lib/prisma');
 // @route   POST /api/businesses
 // @access  Private (Owner only)
 const createBusiness = async (req, res) => {
-    const { name, description, address, category } = req.body;
+    const { name, description, address, phone, latitude, longitude, category, hours } = req.body;
 
     if (!name) {
         return res.status(400).json({ message: 'Business name is required' });
@@ -25,9 +25,18 @@ const createBusiness = async (req, res) => {
                 name,
                 description,
                 address,
+                phone,
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null,
                 category,
                 ownerId: req.user.id,
+                hours: {
+                    create: hours || []
+                }
             },
+            include: {
+                hours: true
+            }
         });
 
         res.status(201).json(business);
@@ -48,6 +57,9 @@ const getMyBusiness = async (req, res) => {
                 services: true,
                 staff: true,
                 appointments: true,
+                hours: {
+                    orderBy: { dayOfWeek: 'asc' }
+                }
             },
         });
 
@@ -67,7 +79,7 @@ const getMyBusiness = async (req, res) => {
 // @access  Private (Owner only)
 const updateBusiness = async (req, res) => {
     const { id } = req.params;
-    const { name, description, address, category } = req.body;
+    const { name, description, address, phone, latitude, longitude, category, hours } = req.body;
 
     try {
         // Verify ownership
@@ -83,17 +95,47 @@ const updateBusiness = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        // Update business details
         const updatedBusiness = await prisma.business.update({
             where: { id },
             data: {
                 name,
                 description,
                 address,
+                phone,
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null,
                 category,
             },
         });
 
-        res.json(updatedBusiness);
+        // Update hours if provided
+        if (hours && Array.isArray(hours)) {
+            // Delete existing hours
+            await prisma.businessHour.deleteMany({
+                where: { businessId: id }
+            });
+
+            // Create new hours
+            await prisma.businessHour.createMany({
+                data: hours.map(h => ({
+                    ...h,
+                    businessId: id
+                }))
+            });
+        }
+
+        // Fetch updated business with hours
+        const finalBusiness = await prisma.business.findUnique({
+            where: { id },
+            include: {
+                hours: {
+                    orderBy: { dayOfWeek: 'asc' }
+                }
+            }
+        });
+
+        res.json(finalBusiness);
     } catch (error) {
         console.error('Error in updateBusiness:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -108,6 +150,7 @@ const getAllBusinesses = async (req, res) => {
         const businesses = await prisma.business.findMany({
             include: {
                 services: true,
+                hours: true,
                 _count: {
                     select: { reviews: true },
                 },
@@ -133,6 +176,9 @@ const getBusinessById = async (req, res) => {
             include: {
                 services: true,
                 staff: true,
+                hours: {
+                    orderBy: { dayOfWeek: 'asc' }
+                },
                 reviews: {
                     include: {
                         customer: {
