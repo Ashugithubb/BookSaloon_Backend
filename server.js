@@ -10,8 +10,27 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+
 app.use(express.json());
+
+app.use(cors({
+    origin: function (origin, callback) {
+        console.log("REQUEST ORIGIN:", origin);
+        console.log("ENV CLIENT_URL:", process.env.CLIENT_URL);
+
+        const allowed = [
+            "http://localhost:3000",
+            "https://booksalon.vercel.app"
+        ];
+
+        if (!origin || allowed.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Blocked by CORS"));
+        }
+    },
+    credentials: true
+}));
 
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
