@@ -188,42 +188,60 @@ const getMe = async (req, res) => {
 // @route   POST /api/auth/google
 // @access  Public
 const googleAuth = async (req, res) => {
-    const { email, name } = req.body;
-
-    if (!email || !name) {
-        return res.status(400).json({ message: 'Email and name are required' });
-    }
-
     try {
-        // Check if user exists
+        const { email, name, googleId, role } = req.body;
+
+        console.log('🔍 Backend - Received request body:', req.body);
+        console.log('🔍 Backend - Extracted role:', role, 'Type:', typeof role);
+
         let user = await prisma.user.findUnique({
             where: { email }
         });
 
+        console.log('Google Auth - User found:', user ? 'Yes' : 'No', email);
+
         if (!user) {
-            // Create new user (OAuth users don't need password)
+            // If user doesn't exist and no role is provided, ask for it
+            if (!role) {
+                console.log('Google Auth - New user, no role provided. Requesting role selection.');
+                return res.status(200).json({
+                    requiresRoleSelection: true,
+                    email,
+                    name,
+                    googleId
+                });
+            }
+
+            console.log('🔍 Backend - Creating new user with role:', role);
+            // Create new user with provided role
             user = await prisma.user.create({
                 data: {
                     email,
                     name,
                     password: '', // No password for OAuth users
-                    role: 'CUSTOMER',
+                    role: role, // Use the selected role
                     phone: null
                 }
             });
+            console.log('🔍 Backend - User created:', user);
         }
 
-        // Return user data with token
+        const token = jwt.sign(
+            { id: user.id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '30d' }
+        );
+
         res.json({
-            id: user.id,
+            _id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
-            token: generateToken(user.id),
+            token
         });
     } catch (error) {
         console.error('Google auth error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Google authentication failed' });
     }
 };
 

@@ -24,6 +24,19 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum NotificationType {
+  APPOINTMENT_BOOKED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_COMPLETED
+  APPOINTMENT_NO_SHOW
+  APPOINTMENT_ASSIGNED
+  STAFF_CLAIMED
+  REVIEW_RECEIVED
+  STAFF_INVITED
+  BUSINESS_APPROVED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -42,6 +55,22 @@ model User {
   appointments Appointment[] // As customer
   reviews      Review[]
   staffProfile Staff? // If staff, linked to staff record
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?    // Additional metadata
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
 }
 
 model Business {

@@ -4,9 +4,12 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 const prisma = require('./lib/prisma');
 
 const app = express();
+const server = http.createServer(app);
 const port = process.env.PORT || 3001;
 
 // Middleware
@@ -34,6 +37,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Initialize Socket.IO with CORS
+const io = new Server(server, {
+    cors: corsOptions
+});
+
+// Initialize Socket.IO handlers
+const { initializeSocket } = require('./socket/socketHandler');
+initializeSocket(io);
+
+// Make io accessible to routes
+app.set('io', io);
+
 // Explicitly handle OPTIONS requests
 app.use((req, res, next) => {
     if (req.method === 'OPTIONS') {
@@ -56,6 +71,7 @@ const staffRoutes = require('./routes/staffRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api', uploadRoutes); // Mount upload routes at /api to support /businesses and /staff paths
@@ -64,6 +80,7 @@ app.use('/api', serviceRoutes);
 app.use('/api', staffRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api', reviewRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', async (req, res) => {
     try {
@@ -95,7 +112,7 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-    app.listen(port, () => {
+    server.listen(port, () => {
         console.log(`Server running at http://localhost:${port}`);
     });
 }
