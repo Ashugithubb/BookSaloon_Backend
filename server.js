@@ -16,17 +16,20 @@ app.use(express.json());
 
 app.use(cors({
     origin: function (origin, callback) {
-        console.log("REQUEST ORIGIN:", origin);
-        console.log("ENV CLIENT_URL:", process.env.CLIENT_URL);
-
         const allowed = [
             "http://localhost:3000",
-            "https://booksalon.vercel.app"
+            "https://booksalon.vercel.app",
+            "https://www.booksalon.vercel.app"
         ];
+
+        if (process.env.CLIENT_URL) {
+            allowed.push(process.env.CLIENT_URL);
+        }
 
         if (!origin || allowed.includes(origin)) {
             callback(null, true);
         } else {
+            console.log("Blocked by CORS:", origin);
             callback(new Error("Blocked by CORS"));
         }
     },
@@ -83,6 +86,10 @@ app.use((err, req, res, next) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}
+
+module.exports = app;
