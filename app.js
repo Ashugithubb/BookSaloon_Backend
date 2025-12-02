@@ -31,3 +31,4 @@ app.use(cors({
     },
     credentials: true
 }));
+export default app;
