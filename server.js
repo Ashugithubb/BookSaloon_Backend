@@ -10,11 +10,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware
-
-app.use(express.json());
-
-
-app.use(cors({
+const corsOptions = {
     origin: function (origin, callback) {
         const allowed = [
             "http://localhost:3000",
@@ -34,7 +30,12 @@ app.use(cors({
         }
     },
     credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight requests
+
+app.use(express.json());
 
 
 // Serve static files (uploaded images)
