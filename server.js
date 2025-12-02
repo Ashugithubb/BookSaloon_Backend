@@ -13,6 +13,7 @@ const port = process.env.PORT || 3001;
 
 app.use(express.json());
 
+
 app.use(cors({
     origin: function (origin, callback) {
         console.log("REQUEST ORIGIN:", origin);
@@ -31,6 +32,7 @@ app.use(cors({
     },
     credentials: true
 }));
+
 
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
