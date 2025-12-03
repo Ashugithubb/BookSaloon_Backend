@@ -32,7 +32,7 @@ CREATE TABLE "Business" (
     CONSTRAINT "Business_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+--CreateTable
 CREATE TABLE "Service" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
