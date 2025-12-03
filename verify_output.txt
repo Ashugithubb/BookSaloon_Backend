@@ -1,0 +1,14 @@
+Starting verification...
+Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+    at /home/ashutosh/Desktop/muti-tenent/backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async PrismaPgAdapter.performIO (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/adapter-pg/dist/index.js:658:22)
+    at async PrismaPgAdapter.queryRaw (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/adapter-pg/dist/index.js:608:30)
+    at async /home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:23732
+    at async mr (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:23571)
+    at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:41866)
+    at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:42290)
+    at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:43464)
+    at async e.run (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:40736) {
+  clientVersion: '7.0.1'
+}

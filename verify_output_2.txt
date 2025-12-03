@@ -1,0 +1,48 @@
+[dotenv@17.2.3] injecting env (10) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+Starting verification...
+Created test business: 5e620e71-aa6d-4db9-bf1a-ae17d408347a
+
+--- Testing Location Filter ---
+Nearby Search (Expect >= 1): PASS (Found 1)
+  - Found business: Test Filter Salon
+Far Search (Expect 0): PASS (Found 0)
+
+--- Testing Date Filter ---
+Sunday Search (Expect Open): PASS
+Monday Search (Expect Closed): PASS
+
+Cleaning up...
+PrismaClientKnownRequestError: 
+Invalid `prisma.business.delete()` invocation in
+/home/ashutosh/Desktop/muti-tenent/backend/verify_filters.js:78:37
+
+  75 } finally {
+  76     // Cleanup
+  77     console.log('\nCleaning up...');
+→ 78     await prisma.business.delete(
+Foreign key constraint violated on the constraint: `BusinessHour_businessId_fkey`
+    at $r.handleRequestError (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:65:7347)
+    at $r.handleAndLogRequestError (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:65:6642)
+    at $r.request (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:65:6349)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async a (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:75:5816)
+    at async main (/home/ashutosh/Desktop/muti-tenent/backend/verify_filters.js:78:9) {
+  code: 'P2003',
+  meta: {
+    modelName: 'Business',
+    driverAdapterError: DriverAdapterError: ForeignKeyConstraintViolation
+        at PrismaPgAdapter.onError (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/adapter-pg/dist/index.js:693:11)
+        at PrismaPgAdapter.performIO (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/adapter-pg/dist/index.js:688:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async PrismaPgAdapter.queryRaw (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/adapter-pg/dist/index.js:608:30)
+        at async /home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:23732
+        at async mr (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:23571)
+        at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:41866)
+        at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:42290)
+        at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:41116)
+        at async e.interpretNode (/home/ashutosh/Desktop/muti-tenent/backend/node_modules/@prisma/client/runtime/client.js:11:43464) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.0.1'
+}
