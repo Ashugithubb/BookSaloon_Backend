@@ -53,7 +53,7 @@ const createStaff = async (req, res) => {
         if (email && invitationToken) {
             const invitationLink = `${process.env.FRONTEND_URL || 'https://booksalon.vercel.app'}/staff/accept-invitation/${invitationToken}`;
 
-            // Send email in background without awaiting
+            // Send email in background without awaiting /// bhai email jaa kyu nahi rahi hai?
             sendStaffInvitation(email, {
                 staffName: name,
                 businessName: business.name,
