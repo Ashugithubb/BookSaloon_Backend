@@ -51,7 +51,7 @@ const createStaff = async (req, res) => {
 
         // Send invitation email asynchronously (don't block response)
         if (email && invitationToken) {
-            const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/staff/accept-invitation/${invitationToken}`;
+            const invitationLink = `${process.env.FRONTEND_URL || 'https://booksalon.vercel.app'}/staff/accept-invitation/${invitationToken}`;
 
             // Send email in background without awaiting
             sendStaffInvitation(email, {
