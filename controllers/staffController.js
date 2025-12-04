@@ -49,29 +49,32 @@ const createStaff = async (req, res) => {
             },
         });
 
-        // Send invitation email if email provided
+        // Send invitation email asynchronously (don't block response)
         if (email && invitationToken) {
-            try {
-                const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/staff/accept-invitation/${invitationToken}`;
-                await sendStaffInvitation(email, {
-                    staffName: name,
-                    businessName: business.name,
-                    title: title || 'Staff Member',
-                    yearsOfExperience,
-                    languages,
-                    invitationLink
-                });
+            const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/staff/accept-invitation/${invitationToken}`;
+
+            // Send email in background without awaiting
+            sendStaffInvitation(email, {
+                staffName: name,
+                businessName: business.name,
+                title: title || 'Staff Member',
+                yearsOfExperience,
+                languages,
+                invitationLink
+            }).then(() => {
                 console.log(`✅ Invitation email sent to ${email}`);
-            } catch (emailError) {
-                console.error('Failed to send invitation email:', emailError.message);
-                // Don't fail the request if email fails
-            }
+            }).catch(emailError => {
+                console.error('❌ Failed to send invitation email:', emailError.message);
+            });
         }
 
         res.status(201).json({
             ...staff,
             invitationLink: invitationToken ? `/staff/accept-invitation/${invitationToken}` : null,
-            emailSent: email && invitationToken ? true : false
+            emailQueued: email && invitationToken ? true : false,
+            message: email && invitationToken
+                ? 'Staff created successfully. Invitation email is being sent.'
+                : 'Staff created successfully.'
         });
     } catch (error) {
         console.error('Error in createStaff:', error);
