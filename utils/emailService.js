@@ -10,17 +10,19 @@ if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
 }
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Revert to service: 'gmail' as it handles host/port automatically
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // use SSL
     auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
     },
-    // Force IPv4 to avoid IPv6 connection issues on Render
+    // Force IPv4 to avoid IPv6 connection issues
     family: 4,
     // Timeout settings
-    connectionTimeout: 60000,
-    greetingTimeout: 30000,
-    socketTimeout: 60000,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
     debug: true, // Enable debug logs
     logger: true // Log to console
 });
