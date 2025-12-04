@@ -21,13 +21,28 @@ const transporter = nodemailer.createTransport({
     connectionTimeout: 60000,
     greetingTimeout: 30000,
     socketTimeout: 60000,
+    debug: true, // Enable debug logs
+    logger: true // Log to console
+});
+
+// Verify transporter connection
+transporter.verify(function (error, success) {
+    if (error) {
+        console.error('❌ Email Transporter Error:', error);
+    } else {
+        console.log('✅ Email Server is ready to take our messages');
+    }
 });
 
 const sendEmail = async (to, subject, html) => {
     // Check if email is configured
     if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+        console.error('❌ Email configuration missing in .env');
         throw new Error('Email service not configured. Please set MAIL_USER and MAIL_PASS in .env file');
     }
+
+    console.log(`📨 Preparing to send email to: ${to}`);
+    console.log(`🔑 Using email account: ${process.env.MAIL_USER}`);
 
     try {
         const mailOptions = {
@@ -37,12 +52,15 @@ const sendEmail = async (to, subject, html) => {
             html,
         };
 
+        console.log('🚀 Sending mail via transporter...');
         const info = await transporter.sendMail(mailOptions);
         console.log('✅ Email sent successfully to:', to);
-        console.log('Message ID:', info.messageId);
+        console.log('🆔 Message ID:', info.messageId);
+        console.log('📝 Response:', info.response);
         return info;
     } catch (error) {
         console.error('❌ Error sending email:', error.message);
+        console.error('❌ Full error object:', JSON.stringify(error, null, 2));
         throw new Error(`Failed to send email: ${error.message}`);
     }
 };

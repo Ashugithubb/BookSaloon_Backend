@@ -53,7 +53,10 @@ const createStaff = async (req, res) => {
         if (email && invitationToken) {
             const invitationLink = `${process.env.FRONTEND_URL || 'https://booksalon.vercel.app'}/staff/accept-invitation/${invitationToken}`;
 
-            // Send email in background without awaiting /// bhai email jaa kyu nahi rahi hai?
+            // Send email in background without awaiting
+            console.log(`📧 Attempting to send invitation email to: ${email}`);
+            console.log(`🔗 Invitation link: ${invitationLink}`);
+
             sendStaffInvitation(email, {
                 staffName: name,
                 businessName: business.name,
@@ -61,10 +64,13 @@ const createStaff = async (req, res) => {
                 yearsOfExperience,
                 languages,
                 invitationLink
-            }).then(() => {
-                console.log(`✅ Invitation email sent to ${email}`);
+            }).then((info) => {
+                console.log(`✅ Invitation email sent successfully to ${email}`);
+                console.log('📝 Email response:', JSON.stringify(info));
             }).catch(emailError => {
-                console.error('❌ Failed to send invitation email:', emailError.message);
+                console.error('❌ Failed to send invitation email to:', email);
+                console.error('❌ Error details:', emailError.message);
+                console.error('❌ Stack trace:', emailError.stack);
             });
         }
 
