@@ -83,24 +83,20 @@ const sendCompletionOTP = async (customerEmail, otp, bookingDetails) => {
 };
 
 const sendVerificationEmail = async (email, otp) => {
-    const mailOptions = {
-        from: process.env.MAIL_USER,
-        to: email,
-        subject: 'Verify Your Email - BookSalon',
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #4F46E5;">Verify Your Email Address</h2>
-                <p>Thank you for signing up with BookSalon! Please use the OTP below to verify your email address.</p>
-                <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <h1 style="color: #1F2937; margin: 0; letter-spacing: 5px;">${otp}</h1>
-                </div>
-                <p>This OTP is valid for 10 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
+    const subject = 'Verify Your Email - BookSalon';
+    const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #4F46E5;">Verify Your Email Address</h2>
+            <p>Thank you for signing up with BookSalon! Please use the OTP below to verify your email address.</p>
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <h1 style="color: #1F2937; margin: 0; letter-spacing: 5px;">${otp}</h1>
             </div>
-        `,
-    };
+            <p>This OTP is valid for 10 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        </div>
+    `;
 
-    return transporter.sendMail(mailOptions);
+    await sendEmail(email, subject, html);
 };
 
 const sendStaffInvitation = async (staffEmail, invitationDetails) => {
