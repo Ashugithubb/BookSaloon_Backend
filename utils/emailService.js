@@ -10,20 +10,17 @@ if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
 }
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // use STARTTLS
+    service: 'gmail', // Revert to service: 'gmail' as it handles host/port automatically
     auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
     },
-    tls: {
-        rejectUnauthorized: false // Helps with some cloud environment SSL issues
-    },
-    // Significantly increased timeouts
-    connectionTimeout: 60000, // 60 seconds
-    greetingTimeout: 30000, // 30 seconds
-    socketTimeout: 60000, // 60 seconds
+    // Force IPv4 to avoid IPv6 connection issues on Render
+    family: 4,
+    // Timeout settings
+    connectionTimeout: 60000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
 });
 
 const sendEmail = async (to, subject, html) => {
