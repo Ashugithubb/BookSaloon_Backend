@@ -11,16 +11,19 @@ if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // use SSL
+    port: 587,
+    secure: false, // use STARTTLS
     auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
     },
-    // Increased timeout settings for production reliability
-    connectionTimeout: 20000, // 20 seconds
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
+    tls: {
+        rejectUnauthorized: false // Helps with some cloud environment SSL issues
+    },
+    // Significantly increased timeouts
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000, // 30 seconds
+    socketTimeout: 60000, // 60 seconds
 });
 
 const sendEmail = async (to, subject, html) => {
