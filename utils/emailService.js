@@ -1,69 +1,41 @@
-const nodemailer = require('nodemailer');
-
-// Validate email configuration
-if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    console.error('⚠️  EMAIL CONFIGURATION MISSING!');
-    console.error('Please set MAIL_USER and MAIL_PASS in your .env file');
-    console.error('Example:');
-    console.error('  MAIL_USER=your-email@gmail.com');
-    console.error('  MAIL_PASS=your-app-password');
-}
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // use SSL
-    auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-    },
-    // Force IPv4 to avoid IPv6 connection issues
-    family: 4,
-    // Timeout settings
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
-    debug: true, // Enable debug logs
-    logger: true // Log to console
-});
-
-// Verify transporter connection
-transporter.verify(function (error, success) {
-    if (error) {
-        console.error('❌ Email Transporter Error:', error);
-    } else {
-        console.log('✅ Email Server is ready to take our messages');
-    }
-});
+// const nodemailer = require('nodemailer'); // No longer needed in backend
 
 const sendEmail = async (to, subject, html) => {
-    // Check if email is configured
-    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-        console.error('❌ Email configuration missing in .env');
-        throw new Error('Email service not configured. Please set MAIL_USER and MAIL_PASS in .env file');
+    // Check configuration
+    if (!process.env.FRONTEND_URL) {
+        console.error('❌ FRONTEND_URL is missing in .env');
+        throw new Error('FRONTEND_URL not configured');
+    }
+    if (!process.env.EMAIL_SECRET) {
+        console.error('❌ EMAIL_SECRET is missing in .env');
+        throw new Error('EMAIL_SECRET not configured');
     }
 
-    console.log(`📨 Preparing to send email to: ${to}`);
-    console.log(`🔑 Using email account: ${process.env.MAIL_USER}`);
+    console.log(`📨 Delegating email to Frontend API: ${to}`);
+    const apiUrl = `${process.env.FRONTEND_URL}/api/emails/send`;
 
     try {
-        const mailOptions = {
-            from: process.env.MAIL_USER,
-            to,
-            subject,
-            html,
-        };
+        // Use global fetch (Node 18+)
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-email-secret': process.env.EMAIL_SECRET
+            },
+            body: JSON.stringify({ to, subject, html })
+        });
 
-        console.log('🚀 Sending mail via transporter...');
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email sent successfully to:', to);
-        console.log('🆔 Message ID:', info.messageId);
-        console.log('📝 Response:', info.response);
-        return info;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Frontend API Error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Email sent successfully via Frontend:', data.messageId);
+        return data;
     } catch (error) {
-        console.error('❌ Error sending email:', error.message);
-        console.error('❌ Full error object:', JSON.stringify(error, null, 2));
-        throw new Error(`Failed to send email: ${error.message}`);
+        console.error('❌ Error sending email via proxy:', error.message);
+        throw error;
     }
 };
 
