@@ -7,7 +7,9 @@ const { sendStaffInvitation } = require('../utils/emailService');
 // @access  Private (Owner only)
 const createStaff = async (req, res) => {
     const { businessId } = req.params;
-    const { name, email, phone, title, yearsOfExperience, languages } = req.body;
+    const { name, email, phone, title, yearsOfExperience, languages, serviceIds } = req.body;
+
+    console.log('🔧 createStaff - Received serviceIds:', serviceIds);
 
     if (!name) {
         return res.status(400).json({ message: 'Staff name is required' });
@@ -27,6 +29,20 @@ const createStaff = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        // Validate service IDs if provided
+        if (serviceIds && serviceIds.length > 0) {
+            const serviceCount = await prisma.service.count({
+                where: {
+                    id: { in: serviceIds },
+                    businessId: businessId
+                }
+            });
+
+            if (serviceCount !== serviceIds.length) {
+                return res.status(400).json({ message: 'One or more service IDs are invalid for this business' });
+            }
+        }
+
         // Generate invitation token if email provided
         let invitationToken = null;
         let invitationExpires = null;
@@ -34,6 +50,9 @@ const createStaff = async (req, res) => {
             invitationToken = crypto.randomBytes(32).toString('hex');
             invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
         }
+
+        console.log('🔧 About to create staff with service assignments...');
+        console.log('🔧 Service IDs to assign:', serviceIds);
 
         const staff = await prisma.staff.create({
             data: {
@@ -46,8 +65,28 @@ const createStaff = async (req, res) => {
                 businessId,
                 invitationToken,
                 invitationExpires,
+                assignedServices: serviceIds && serviceIds.length > 0 ? {
+                    create: serviceIds.map(serviceId => ({ serviceId }))
+                } : undefined
             },
+            include: {
+                assignedServices: {
+                    include: {
+                        service: {
+                            select: {
+                                id: true,
+                                name: true,
+                                price: true,
+                                duration: true
+                            }
+                        }
+                    }
+                }
+            }
         });
+
+        console.log('✅ Staff created successfully!');
+        console.log('✅ Assigned services:', staff.assignedServices);
 
         // Send invitation email asynchronously (don't block response)
         if (email && invitationToken) {
@@ -97,6 +136,20 @@ const getStaff = async (req, res) => {
     try {
         const staff = await prisma.staff.findMany({
             where: { businessId },
+            include: {
+                assignedServices: {
+                    include: {
+                        service: {
+                            select: {
+                                id: true,
+                                name: true,
+                                price: true,
+                                duration: true
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         res.json(staff);
@@ -111,7 +164,9 @@ const getStaff = async (req, res) => {
 // @access  Private (Owner only)
 const updateStaff = async (req, res) => {
     const { id } = req.params;
-    const { name, email, phone, title, yearsOfExperience, languages } = req.body;
+    const { name, email, phone, title, yearsOfExperience, languages, serviceIds } = req.body;
+
+    console.log('🔧 updateStaff - Received serviceIds:', serviceIds);
 
     try {
         const staff = await prisma.staff.findUnique({
@@ -127,6 +182,45 @@ const updateStaff = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        // Validate service IDs if provided
+        if (serviceIds && serviceIds.length > 0) {
+            const serviceCount = await prisma.service.count({
+                where: {
+                    id: { in: serviceIds },
+                    businessId: staff.businessId
+                }
+            });
+
+            if (serviceCount !== serviceIds.length) {
+                return res.status(400).json({ message: 'One or more service IDs are invalid for this business' });
+            }
+        }
+
+        // If serviceIds is provided (even if empty array), update assignments
+        if (serviceIds !== undefined) {
+            console.log('🔧 Updating service assignments...');
+            console.log('🔧 Deleting existing assignments for staffId:', id);
+
+            // Delete existing assignments
+            await prisma.serviceStaff.deleteMany({
+                where: { staffId: id }
+            });
+
+            console.log('🔧 Creating new assignments...');
+            console.log('🔧 Service IDs to assign:', serviceIds);
+
+            // Create new assignments if service IDs provided
+            if (serviceIds.length > 0) {
+                const result = await prisma.serviceStaff.createMany({
+                    data: serviceIds.map(serviceId => ({
+                        serviceId,
+                        staffId: id
+                    }))
+                });
+                console.log('✅ Created assignments:', result);
+            }
+        }
+
         const updatedStaff = await prisma.staff.update({
             where: { id },
             data: {
@@ -137,6 +231,20 @@ const updateStaff = async (req, res) => {
                 yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : staff.yearsOfExperience,
                 languages: languages || staff.languages,
             },
+            include: {
+                assignedServices: {
+                    include: {
+                        service: {
+                            select: {
+                                id: true,
+                                name: true,
+                                price: true,
+                                duration: true
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         res.json(updatedStaff);

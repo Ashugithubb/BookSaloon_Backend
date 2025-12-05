@@ -50,6 +50,44 @@ const createAppointment = async (req, res) => {
     }
 
     try {
+        // Fetch service with assigned staff
+        const service = await prisma.service.findUnique({
+            where: { id: serviceId },
+            include: {
+                assignedStaff: {
+                    include: {
+                        staff: true
+                    }
+                }
+            }
+        });
+
+        if (!service) {
+            return res.status(404).json({ message: 'Service not found' });
+        }
+
+        // Validate staff assignment
+        const hasAssignedStaff = service.assignedStaff && service.assignedStaff.length > 0;
+
+        if (hasAssignedStaff) {
+            // Service has assigned staff - staff selection is required
+            if (!staffId) {
+                return res.status(400).json({
+                    message: 'This service requires a staff member to be selected',
+                    assignedStaffIds: service.assignedStaff.map(as => as.staffId)
+                });
+            }
+
+            // Verify the selected staff is assigned to this service
+            const isStaffAssigned = service.assignedStaff.some(as => as.staffId === staffId);
+            if (!isStaffAssigned) {
+                return res.status(400).json({
+                    message: 'Selected staff member is not assigned to this service',
+                    assignedStaffIds: service.assignedStaff.map(as => as.staffId)
+                });
+            }
+        }
+
         const appointment = await prisma.appointment.create({
             data: {
                 customerId: req.user.id,

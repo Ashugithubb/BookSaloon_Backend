@@ -120,6 +120,7 @@ model Service {
 
   // Relations
   appointments Appointment[]
+  assignedStaff ServiceStaff[] // Staff assigned to this service
 }
 
 model Staff {
@@ -145,6 +146,7 @@ model Staff {
   // Relations
   appointments Appointment[]
   reviews      Review[]
+  assignedServices ServiceStaff[] // Services this staff is assigned to
 }
 
 model Appointment {
@@ -176,4 +178,17 @@ model Review {
   staffId    String?
   staff      Staff?   @relation(fields: [staffId], references: [id])
   createdAt  DateTime @default(now())
+}
+
+model ServiceStaff {
+  id         String   @id @default(uuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staffId    String
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([serviceId, staffId])
+  @@index([serviceId])
+  @@index([staffId])
 }
