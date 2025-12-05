@@ -174,7 +174,23 @@ const getBusinessById = async (req, res) => {
         const business = await prisma.business.findUnique({
             where: { id },
             include: {
-                services: true,
+                services: {
+                    include: {
+                        assignedStaff: {
+                            include: {
+                                staff: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        image: true,
+                                        title: true,
+                                        rating: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 staff: true,
                 hours: {
                     orderBy: { dayOfWeek: 'asc' }
